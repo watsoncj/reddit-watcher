@@ -1,5 +1,12 @@
 const config = require('./config');
 const Snoocore = require('snoocore');
+const when = require('when');
+ 
+if (config.goo_gl.key) {
+  const googl = require('goo.gl');
+  googl.setKey(config.goo_gl.key);
+}
+ 
 if (config.twilio && config.twilio.sid) {
   const twilio = require('twilio')(config.twilio.sid, config.twilio.token);
 }
@@ -30,20 +37,63 @@ function handleListing(sub, params, slice) {
     .map(pluckFields);
 
   if (posts.length) {
-    var body = formatMessage(posts);
-    console.log(body);
-    sendSMS(body);
+    when.map(posts, formatMessage)
+      .then((messageArr) => {
+        for (var i=0; i<messageArr.length; i++) {
+          console.log(messageArr[i]);
+          setTimeout(sendSMS.bind(this, messageArr[i]), 5000*i);
+        }
+      })
+      .catch((error) => console.error(error));
   }
   scheduleNextQuery(sub, params);
 };
 
-function formatMessage(posts) {
-  var title = posts[0].title;
-  return title.substring(0, Math.min(120, title.length));
+function formatMessage(post) {
+  return when.promise((resolve) => {
+    var shortTitle = post.title.substring(0, Math.min(120, post.title.length));
+    shortenUrl(post.url)
+      .then((shortUrl) => {
+        resolve(shortTitle + ' ' + shortUrl);
+      })
+      .catch((err) => {
+        console.err(err);
+        resolve(shortTitle);
+      })
+  });
 }
 
-function handleError(sub, params, e) {
-  console.error(e.toString());
+function shortenUrl(url) {
+  if (googl && url) {
+    return googl.shorten(url)
+  } else {
+    // return empty string if URL shortener is not configured or URL not provided
+    return when('');
+  }
+}
+// function formatMessage(post) {
+//   return when.promise((resolve) => {
+//     var shortTitle = post.title.substring(0, Math.min(120, post.title.length));
+//     if (post.url) {
+//       bitly.shorten(post.url)
+//         .then((response) => {
+//           console.log("THEN");
+//           console.log(response);
+//           resolve(shortTitle + ' ' + response.data.url);
+//         })
+//         .catch((error) => {
+//           console.log('bad');
+//           console.error(error);
+//           resolve(title);
+//         });
+//     } else {
+//       resolve(shortTitle);
+//     }
+//   });
+// }
+
+function handleError(sub, params, error) {
+  console.error(error.toString());
   scheduleNextQuery(sub, params);
 }
 
@@ -77,14 +127,16 @@ function pluckFields(post) {
 
 function sendSMS(body) {
   if (twilio) {
+    console.log('sending message ' + body);
     twilio.sendMessage({
       to: config.twilio.toPhone,
       from: config.twilio.fromPhone,
       body: body
-    }, (err) => {
-        if (err) {
-          console.error('error', err);
-        }
+    }, (error, result) => {
+      if (error) {
+        console.error('error', error);
+      }
+      console.log(result);
     });
   }
 }
