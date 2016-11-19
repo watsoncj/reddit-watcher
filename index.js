@@ -1,6 +1,8 @@
 const config = require('./config');
 const Snoocore = require('snoocore');
-const twilio = require('twilio')(config.twilio.sid, config.twilio.token);
+if (config.twilio && config.twilio.sid) {
+  const twilio = require('twilio')(config.twilio.sid, config.twilio.token);
+}
 
 var reddit = new Snoocore(config.snoocore);
 
@@ -74,15 +76,15 @@ function pluckFields(post) {
 }
 
 function sendSMS(body) {
-  twilio.sendMessage({
-    to: config.twilio.toPhone,
-    from: config.twilio.fromPhone,
-    body: body
-  }, (err, responseData) => {
-      if (err) {
-        console.error('error', err);
-      } else {
-        console.log('data', responseData);
-      }
-  });
+  if (twilio) {
+    twilio.sendMessage({
+      to: config.twilio.toPhone,
+      from: config.twilio.fromPhone,
+      body: body
+    }, (err) => {
+        if (err) {
+          console.error('error', err);
+        }
+    });
+  }
 }
