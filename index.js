@@ -2,8 +2,9 @@ const config = require('./config');
 const Snoocore = require('snoocore');
 const when = require('when');
  
-if (config.goo_gl.key) {
-  const googl = require('goo.gl');
+var googl;
+if (config.goo_gl && config.goo_gl.key) {
+  googl = require('goo.gl');
   googl.setKey(config.goo_gl.key);
 }
  
